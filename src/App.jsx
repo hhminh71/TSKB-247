@@ -2,12 +2,14 @@ import React, { useState } from 'react';
 import { 
   LayoutDashboard, Layers, ClipboardCheck, FileBox, Activity, Settings, 
   Bell, Search, AlertTriangle, CheckCircle2, Wrench, Clock, ChevronRight, 
-  PlaneTakeoff, Plus, Filter, MoreVertical, MapPin, Calendar, User, Save, XCircle, MinusCircle
+  PlaneTakeoff, Plus, Filter, MoreVertical, MapPin, Calendar, User, Save, XCircle, MinusCircle,
+  Menu, X // Thêm icon Menu và X
 } from 'lucide-react';
 
 const App = () => {
-  const [activeMenu, setActiveMenu] = useState('inspection'); // Tạm thời để mặc định mở trang Sổ tay cho dễ test
+  const [activeMenu, setActiveMenu] = useState('inspection'); 
   const [searchQuery, setSearchQuery] = useState('');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); // State quản lý menu mobile
   
   // State cho Sổ tay kiểm tra
   const [selectedAssetId, setSelectedAssetId] = useState('');
@@ -29,66 +31,88 @@ const App = () => {
     asset.id.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Lấy tài sản đang được chọn để làm form kiểm tra
   const activeAssetForInspection = masterAssets.find(a => a.id === selectedAssetId);
 
-  // Xử lý khi chọn Đạt/Không đạt
   const handleCheck = (criteriaIndex, status) => {
-    setInspectionData(prev => ({
-      ...prev,
-      [criteriaIndex]: { ...prev[criteriaIndex], status }
-    }));
+    setInspectionData(prev => ({ ...prev, [criteriaIndex]: { ...prev[criteriaIndex], status } }));
   };
 
-  // Xử lý ghi chú
   const handleNote = (criteriaIndex, note) => {
-    setInspectionData(prev => ({
-      ...prev,
-      [criteriaIndex]: { ...prev[criteriaIndex], note }
-    }));
+    setInspectionData(prev => ({ ...prev, [criteriaIndex]: { ...prev[criteriaIndex], note } }));
+  };
+
+  // Hàm chuyển trang kèm theo việc tự động đóng Menu trên điện thoại
+  const handleMenuClick = (menu) => {
+    setActiveMenu(menu);
+    setIsMobileMenuOpen(false);
   };
 
   return (
-    <div className="flex h-screen bg-slate-50 font-sans text-slate-800">
+    <div className="flex h-screen bg-slate-50 font-sans text-slate-800 overflow-hidden relative">
       
+      {/* LỚP PHỦ MỜ (OVERLAY) CHO MOBILE */}
+      {isMobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-slate-900/50 z-40 md:hidden backdrop-blur-sm transition-opacity"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+
       {/* SIDEBAR */}
-      <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col shadow-2xl z-10 hidden md:flex shrink-0">
-        <div className="h-20 flex items-center px-6 border-b border-slate-800 bg-slate-950">
-          <PlaneTakeoff className="w-8 h-8 text-blue-500 mr-3" />
-          <div>
-            <h1 className="text-base font-bold text-white tracking-wide flex items-center">
-              TSKB-247 <span className="ml-2 text-[11px] bg-blue-600 text-white px-2 py-0.5 rounded-full font-semibold">KHU BAY</span>
-            </h1>
-            <p className="text-[10px] text-slate-400 font-medium tracking-wider uppercase mt-0.5">Phòng TC-KH</p>
+      <aside className={`fixed inset-y-0 left-0 w-64 bg-slate-900 text-slate-300 flex flex-col shadow-2xl z-50 transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 shrink-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className="h-20 flex items-center justify-between px-6 border-b border-slate-800 bg-slate-950">
+          <div className="flex items-center">
+            <PlaneTakeoff className="w-8 h-8 text-blue-500 mr-3 shrink-0" />
+            <div>
+              <h1 className="text-base font-bold text-white tracking-wide flex items-center">
+                TSKB-247 <span className="ml-2 text-[11px] bg-blue-600 text-white px-2 py-0.5 rounded-full font-semibold">KHU BAY</span>
+              </h1>
+              <p className="text-[10px] text-slate-400 font-medium tracking-wider uppercase mt-0.5">Phòng TC-KH</p>
+            </div>
           </div>
+          {/* Nút Đóng Menu trên Mobile */}
+          <button className="md:hidden text-slate-400 hover:text-white p-1" onClick={() => setIsMobileMenuOpen(false)}>
+            <X className="w-6 h-6" />
+          </button>
         </div>
 
         <div className="flex-1 py-6 overflow-y-auto">
           <p className="px-6 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4">Quản lý trung tâm</p>
           <nav className="space-y-1 px-3">
-            <MenuButton icon={<LayoutDashboard size={20}/>} label="Trang tổng quan" active={activeMenu === 'dashboard'} onClick={() => setActiveMenu('dashboard')} />
-            <MenuButton icon={<Layers size={20}/>} label="Danh mục Tài sản" active={activeMenu === 'assets'} onClick={() => setActiveMenu('assets')} />
-            <MenuButton icon={<ClipboardCheck size={20}/>} label="Sổ tay Kiểm tra" active={activeMenu === 'inspection'} onClick={() => setActiveMenu('inspection')} />
-            <MenuButton icon={<Activity size={20}/>} label="Hồ sơ Bệnh án" active={activeMenu === 'history'} onClick={() => setActiveMenu('history')} />
-            <MenuButton icon={<FileBox size={20}/>} label="Xuất Sổ lưu trữ" active={activeMenu === 'export'} onClick={() => setActiveMenu('export')} />
+            <MenuButton icon={<LayoutDashboard size={20}/>} label="Trang tổng quan" active={activeMenu === 'dashboard'} onClick={() => handleMenuClick('dashboard')} />
+            <MenuButton icon={<Layers size={20}/>} label="Danh mục Tài sản" active={activeMenu === 'assets'} onClick={() => handleMenuClick('assets')} />
+            <MenuButton icon={<ClipboardCheck size={20}/>} label="Sổ tay Kiểm tra" active={activeMenu === 'inspection'} onClick={() => handleMenuClick('inspection')} />
+            <MenuButton icon={<Activity size={20}/>} label="Hồ sơ Bệnh án" active={activeMenu === 'history'} onClick={() => handleMenuClick('history')} />
+            <MenuButton icon={<FileBox size={20}/>} label="Xuất Sổ lưu trữ" active={activeMenu === 'export'} onClick={() => handleMenuClick('export')} />
           </nav>
         </div>
       </aside>
 
       {/* MAIN CONTENT */}
-      <main className="flex-1 flex flex-col overflow-hidden w-full">
+      <main className="flex-1 flex flex-col overflow-hidden w-full h-full relative z-0">
         
         {/* HEADER */}
-        <header className="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-4 sm:px-8 shadow-sm z-0 shrink-0">
-          <div className="flex items-center bg-slate-100 px-4 py-2 rounded-lg w-full max-w-sm border border-slate-200 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100 transition-all">
-            <Search className="w-5 h-5 text-slate-400 mr-2 shrink-0" />
-            <input 
-              type="text" 
-              placeholder="Tra cứu tài sản, mã định danh..." 
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="bg-transparent border-none outline-none text-sm w-full text-slate-700 placeholder-slate-400"
-            />
+        <header className="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-4 sm:px-8 shadow-sm shrink-0">
+          
+          <div className="flex items-center gap-3 w-full max-w-sm">
+            {/* Nút Hamburger mở Menu trên Mobile */}
+            <button 
+              className="md:hidden p-2 -ml-2 text-slate-500 hover:bg-slate-100 rounded-lg transition-colors"
+              onClick={() => setIsMobileMenuOpen(true)}
+            >
+              <Menu className="w-6 h-6" />
+            </button>
+
+            <div className="flex items-center bg-slate-100 px-4 py-2 rounded-lg w-full border border-slate-200 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100 transition-all">
+              <Search className="w-5 h-5 text-slate-400 mr-2 shrink-0" />
+              <input 
+                type="text" 
+                placeholder="Tra cứu tài sản..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="bg-transparent border-none outline-none text-sm w-full text-slate-700 placeholder-slate-400"
+              />
+            </div>
           </div>
 
           <div className="flex items-center space-x-6 ml-4">
@@ -105,11 +129,11 @@ const App = () => {
           
           {/* MÀN HÌNH DASHBOARD */}
           {activeMenu === 'dashboard' && (
-            <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
+            <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500 pb-10">
                <div className="flex justify-between items-end">
                 <div>
                   <h2 className="text-2xl font-bold text-slate-800">Tổng quan Khu bay</h2>
-                  <p className="text-slate-500 mt-1">Giám sát trạng thái kỹ thuật và tiến độ kiểm tra trong ngày.</p>
+                  <p className="text-slate-500 mt-1 text-sm sm:text-base">Giám sát trạng thái kỹ thuật và tiến độ kiểm tra trong ngày.</p>
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -123,7 +147,7 @@ const App = () => {
 
           {/* MÀN HÌNH DANH MỤC TÀI SẢN */}
           {activeMenu === 'assets' && (
-             <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in duration-500">
+             <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in duration-500 pb-10">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
                   <h2 className="text-2xl font-bold text-slate-800 flex items-center">
@@ -148,7 +172,7 @@ const App = () => {
                       <div className="mt-auto grid grid-cols-2 gap-2 border-t border-slate-100 pt-4">
                         <button className="text-center py-2 text-sm font-medium text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">Xem chi tiết</button>
                         <button 
-                          onClick={() => { setSelectedAssetId(asset.id); setActiveMenu('inspection'); }}
+                          onClick={() => { setSelectedAssetId(asset.id); handleMenuClick('inspection'); }}
                           className="text-center py-2 text-sm font-medium text-white bg-slate-800 hover:bg-blue-600 rounded-lg shadow-sm transition-colors flex items-center justify-center">
                           <ClipboardCheck className="w-4 h-4 mr-1.5" /> Kiểm tra
                         </button>
@@ -160,7 +184,7 @@ const App = () => {
             </div>
           )}
 
-          {/* MÀN HÌNH SỔ TAY KIỂM TRA (NEW) */}
+          {/* MÀN HÌNH SỔ TAY KIỂM TRA */}
           {activeMenu === 'inspection' && (
             <div className="max-w-3xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
               
@@ -179,7 +203,7 @@ const App = () => {
                   value={selectedAssetId}
                   onChange={(e) => {
                     setSelectedAssetId(e.target.value);
-                    setInspectionData({}); // Reset data khi đổi tài sản
+                    setInspectionData({}); 
                   }}
                 >
                   <option value="">-- Vui lòng chọn tài sản --</option>
@@ -188,7 +212,6 @@ const App = () => {
                   ))}
                 </select>
 
-                {/* Thông tin Meta (Thời gian, người kiểm tra) */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4 pt-4 border-t border-slate-100">
                   <div className="flex items-center text-sm text-slate-600 bg-slate-50 p-2.5 rounded-lg border border-slate-100">
                     <Calendar className="w-4 h-4 mr-2 text-blue-500" />
@@ -201,7 +224,7 @@ const App = () => {
                 </div>
               </div>
 
-              {/* Form Đánh giá (Chỉ hiện khi đã chọn tài sản) */}
+              {/* Form Đánh giá */}
               {activeAssetForInspection ? (
                 <div className="space-y-4">
                   <h3 className="text-base font-bold text-slate-800 mb-3 px-1">2. Nội dung kiểm tra chi tiết</h3>
@@ -212,7 +235,6 @@ const App = () => {
                       <div key={index} className={`bg-white rounded-xl shadow-sm border p-5 transition-colors ${status === 'fail' ? 'border-red-300 bg-red-50/30' : 'border-slate-200'}`}>
                         <p className="font-semibold text-slate-800 text-sm sm:text-base mb-4">{index + 1}. {item}</p>
                         
-                        {/* 3 Nút lựa chọn (Mobile friendly) */}
                         <div className="grid grid-cols-3 gap-2 sm:gap-4">
                           <button 
                             onClick={() => handleCheck(index, 'pass')}
@@ -239,7 +261,6 @@ const App = () => {
                           </button>
                         </div>
 
-                        {/* Ô nhập ghi chú chỉ hiện khi chọn Không đạt */}
                         {status === 'fail' && (
                           <div className="mt-4 animate-in fade-in slide-in-from-top-2">
                             <label className="block text-xs font-semibold text-red-700 uppercase tracking-wider mb-2">Mô tả dấu hiệu bất thường <span className="text-red-500">*</span></label>
@@ -256,7 +277,6 @@ const App = () => {
                     );
                   })}
 
-                  {/* Nút Submit */}
                   <div className="pt-6">
                     <button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-lg py-4 rounded-xl shadow-lg shadow-blue-200 transition-all flex items-center justify-center group">
                       <Save className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />
@@ -264,7 +284,6 @@ const App = () => {
                     </button>
                     <p className="text-center text-xs text-slate-400 mt-3">Dữ liệu sẽ được mã hóa và đồng bộ lên máy chủ an toàn.</p>
                   </div>
-
                 </div>
               ) : (
                 <div className="text-center py-16 bg-slate-50 border border-slate-200 border-dashed rounded-xl">
