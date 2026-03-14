@@ -3,22 +3,27 @@ import {
   LayoutDashboard, Layers, ClipboardCheck, FileBox, Activity, Settings, 
   Bell, Search, AlertTriangle, CheckCircle2, Wrench, Clock, ChevronRight, 
   PlaneTakeoff, Plus, Filter, MoreVertical, MapPin, Calendar, User, Save, XCircle, MinusCircle,
-  Menu, X // Thêm icon Menu và X
+  Menu, X
 } from 'lucide-react';
 
 const App = () => {
   const [activeMenu, setActiveMenu] = useState('inspection'); 
   const [searchQuery, setSearchQuery] = useState('');
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); // State quản lý menu mobile
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); 
   
   // State cho Sổ tay kiểm tra
   const [selectedAssetId, setSelectedAssetId] = useState('');
   const [inspectionData, setInspectionData] = useState({});
 
-  // ---------------- MOCK DATA ----------------
-  const stats = { totalAssets: 45, inspectedToday: 12, failed: 3, maintenance: 2 };
+  // ---------------- MOCK DATA LỊCH SỬ (Dựa theo database_khubay.csv) ----------------
+  const [historyLogs, setHistoryLogs] = useState([
+    { id: 'CCT-20260314-001', date: '14/03/2026', time: '08:30', inspector: 'Nguyễn Văn A', asset: 'Đường cất hạ cánh 01', result: 'Đạt' },
+    { id: 'CCT-20260314-002', date: '14/03/2026', time: '08:35', inspector: 'Nguyễn Văn A', asset: 'Đường lăn E', result: 'Không đạt' },
+    { id: 'CCT-20260314-003', date: '14/03/2026', time: '09:15', inspector: 'Trần Văn B', asset: 'Sân đỗ tàu bay số 1', result: 'Đạt' }
+  ]);
 
-  // Dữ liệu Danh mục tài sản
+  const stats = { totalAssets: 45, inspectedToday: historyLogs.length, failed: historyLogs.filter(l => l.result === 'Không đạt').length, maintenance: 2 };
+
   const masterAssets = [
     { id: 'CHC-01', name: 'Đường cất hạ cánh 01', type: 'Đường băng', location: 'Khu vực Bắc', status: 'Đang khai thác', color: 'emerald', image: 'https://images.unsplash.com/photo-1556388158-158ea5ccacbd?auto=format&fit=crop&q=80&w=400&h=250', criteria: ['Tình trạng rạn nứt mặt đường', 'Tình trạng sơn kẻ tín hiệu', 'Tình trạng vệt cao su'] },
     { id: 'DL-E', name: 'Đường lăn E', type: 'Đường lăn', location: 'Khu vực Nam', status: 'Đang khai thác', color: 'emerald', image: 'https://images.unsplash.com/photo-1603588934504-2070e19fb252?auto=format&fit=crop&q=80&w=400&h=250', criteria: ['Tình trạng rạn nứt mặt đường', 'Tình trạng sơn kẻ tín hiệu', 'Tình trạng lề đường lăn'] },
@@ -41,16 +46,44 @@ const App = () => {
     setInspectionData(prev => ({ ...prev, [criteriaIndex]: { ...prev[criteriaIndex], note } }));
   };
 
-  // Hàm chuyển trang kèm theo việc tự động đóng Menu trên điện thoại
   const handleMenuClick = (menu) => {
     setActiveMenu(menu);
     setIsMobileMenuOpen(false);
   };
 
+  // Hàm xử lý khi bấm LƯU KẾT QUẢ
+  const handleSaveInspection = () => {
+    // 1. Kiểm tra xem có mục nào Không đạt không
+    const isFailed = Object.values(inspectionData).some(item => item.status === 'fail');
+    const overallResult = isFailed ? 'Không đạt' : 'Đạt';
+
+    // 2. Tạo mã phiếu mới tự động (ví dụ: CCT-YYYYMMDD-RND)
+    const today = new Date();
+    const dateStr = today.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const timeStr = today.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+    const newId = `CCT-${today.getFullYear()}${(today.getMonth()+1).toString().padStart(2,'0')}${today.getDate().toString().padStart(2,'0')}-${Math.floor(100 + Math.random() * 900)}`;
+
+    // 3. Thêm vào đầu danh sách lịch sử
+    const newLog = {
+      id: newId,
+      date: dateStr,
+      time: timeStr,
+      inspector: 'Nguyễn Văn A',
+      asset: activeAssetForInspection.name,
+      result: overallResult
+    };
+
+    setHistoryLogs([newLog, ...historyLogs]);
+
+    // 4. Reset form và chuyển hướng
+    setInspectionData({});
+    setSelectedAssetId('');
+    handleMenuClick('history');
+  };
+
   return (
     <div className="flex h-screen bg-slate-50 font-sans text-slate-800 overflow-hidden relative">
       
-      {/* LỚP PHỦ MỜ (OVERLAY) CHO MOBILE */}
       {isMobileMenuOpen && (
         <div 
           className="fixed inset-0 bg-slate-900/50 z-40 md:hidden backdrop-blur-sm transition-opacity"
@@ -70,7 +103,6 @@ const App = () => {
               <p className="text-[10px] text-slate-400 font-medium tracking-wider uppercase mt-0.5">Phòng TC-KH</p>
             </div>
           </div>
-          {/* Nút Đóng Menu trên Mobile */}
           <button className="md:hidden text-slate-400 hover:text-white p-1" onClick={() => setIsMobileMenuOpen(false)}>
             <X className="w-6 h-6" />
           </button>
@@ -93,16 +125,13 @@ const App = () => {
         
         {/* HEADER */}
         <header className="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-4 sm:px-8 shadow-sm shrink-0">
-          
           <div className="flex items-center gap-3 w-full max-w-sm">
-            {/* Nút Hamburger mở Menu trên Mobile */}
             <button 
               className="md:hidden p-2 -ml-2 text-slate-500 hover:bg-slate-100 rounded-lg transition-colors"
               onClick={() => setIsMobileMenuOpen(true)}
             >
               <Menu className="w-6 h-6" />
             </button>
-
             <div className="flex items-center bg-slate-100 px-4 py-2 rounded-lg w-full border border-slate-200 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100 transition-all">
               <Search className="w-5 h-5 text-slate-400 mr-2 shrink-0" />
               <input 
@@ -114,7 +143,6 @@ const App = () => {
               />
             </div>
           </div>
-
           <div className="flex items-center space-x-6 ml-4">
             <div className="text-right hidden lg:block">
               <p className="text-sm font-semibold text-slate-800">Thứ Bảy, 14 Tháng 03, 2026</p>
@@ -125,7 +153,7 @@ const App = () => {
         </header>
 
         {/* CONTENT AREA */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-8">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-8 bg-slate-50">
           
           {/* MÀN HÌNH DASHBOARD */}
           {activeMenu === 'dashboard' && (
@@ -139,7 +167,7 @@ const App = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <StatCard title="Tổng số Tài sản" value={stats.totalAssets} icon={<Layers className="w-6 h-6 text-blue-600" />} trend="+2 tài sản mới" color="blue" />
                 <StatCard title="Đã kiểm tra" value={`${stats.inspectedToday}/${stats.totalAssets}`} icon={<ClipboardCheck className="w-6 h-6 text-emerald-600" />} trend="Đạt 26% tiến độ" color="emerald" />
-                <StatCard title="Điểm Không Đạt" value={stats.failed} icon={<AlertTriangle className="w-6 h-6 text-red-600" />} trend="Cần xử lý ngay" color="red" alert />
+                <StatCard title="Điểm Không Đạt" value={stats.failed} icon={<AlertTriangle className="w-6 h-6 text-red-600" />} trend="Cần xử lý ngay" color="red" alert={stats.failed > 0} />
                 <StatCard title="Đang Bảo trì" value={stats.maintenance} icon={<Wrench className="w-6 h-6 text-amber-600" />} trend="Hệ thống đèn, Sân đỗ" color="amber" />
               </div>
             </div>
@@ -187,7 +215,6 @@ const App = () => {
           {/* MÀN HÌNH SỔ TAY KIỂM TRA */}
           {activeMenu === 'inspection' && (
             <div className="max-w-3xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
-              
               <div className="text-center mb-8">
                 <h2 className="text-2xl font-bold text-slate-800 flex items-center justify-center">
                   <ClipboardCheck className="mr-2 text-blue-600" /> Nhập Sổ tay Kiểm tra
@@ -195,7 +222,6 @@ const App = () => {
                 <p className="text-slate-500 mt-2 text-sm">Ghi nhận tình trạng kỹ thuật hiện trường ngay trên thiết bị di động.</p>
               </div>
 
-              {/* Box Chọn Tài sản */}
               <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 sm:p-6">
                 <label className="block text-sm font-semibold text-slate-700 mb-2">1. Chọn Tài sản cần kiểm tra</label>
                 <select 
@@ -215,7 +241,7 @@ const App = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4 pt-4 border-t border-slate-100">
                   <div className="flex items-center text-sm text-slate-600 bg-slate-50 p-2.5 rounded-lg border border-slate-100">
                     <Calendar className="w-4 h-4 mr-2 text-blue-500" />
-                    <span className="font-medium">14/03/2026 - 08:30</span>
+                    <span className="font-medium">14/03/2026 - {new Date().toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'})}</span>
                   </div>
                   <div className="flex items-center text-sm text-slate-600 bg-slate-50 p-2.5 rounded-lg border border-slate-100">
                     <User className="w-4 h-4 mr-2 text-blue-500" />
@@ -224,7 +250,6 @@ const App = () => {
                 </div>
               </div>
 
-              {/* Form Đánh giá */}
               {activeAssetForInspection ? (
                 <div className="space-y-4">
                   <h3 className="text-base font-bold text-slate-800 mb-3 px-1">2. Nội dung kiểm tra chi tiết</h3>
@@ -278,7 +303,10 @@ const App = () => {
                   })}
 
                   <div className="pt-6">
-                    <button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-lg py-4 rounded-xl shadow-lg shadow-blue-200 transition-all flex items-center justify-center group">
+                    <button 
+                      onClick={handleSaveInspection}
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-lg py-4 rounded-xl shadow-lg shadow-blue-200 transition-all flex items-center justify-center group"
+                    >
                       <Save className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />
                       Lưu kết quả & Ký nhận
                     </button>
@@ -294,12 +322,79 @@ const App = () => {
             </div>
           )}
 
+          {/* MÀN HÌNH HỒ SƠ BỆNH ÁN (NHẬT KÝ KIỂM TRA) */}
+          {activeMenu === 'history' && (
+            <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in duration-500 pb-10">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                  <h2 className="text-2xl font-bold text-slate-800 flex items-center">
+                    <Activity className="mr-2 text-blue-600" /> Hồ sơ Bệnh án & Lịch sử
+                  </h2>
+                  <p className="text-slate-500 mt-1 text-sm">Tra cứu nhật ký tuần tra và trạng thái khắc phục bảo trì.</p>
+                </div>
+                <div className="flex space-x-3">
+                  <button className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center shadow-sm">
+                    <Filter className="w-4 h-4 mr-2" />
+                    Bộ lọc
+                  </button>
+                </div>
+              </div>
+
+              {/* Bảng dữ liệu Lịch sử */}
+              <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse min-w-[800px]">
+                    <thead>
+                      <tr className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider border-b border-slate-200">
+                        <th className="px-6 py-4 font-semibold">Mã Phiếu</th>
+                        <th className="px-6 py-4 font-semibold">Thời gian</th>
+                        <th className="px-6 py-4 font-semibold">Tài sản / Khu vực</th>
+                        <th className="px-6 py-4 font-semibold">Người kiểm tra</th>
+                        <th className="px-6 py-4 font-semibold">Kết quả</th>
+                        <th className="px-6 py-4 font-semibold text-right">Thao tác</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-sm">
+                      {historyLogs.map((log, index) => (
+                        <tr key={index} className="hover:bg-slate-50 transition-colors">
+                          <td className="px-6 py-4 font-medium text-blue-600">{log.id}</td>
+                          <td className="px-6 py-4 text-slate-500">{log.time} - {log.date}</td>
+                          <td className="px-6 py-4 font-medium text-slate-800">{log.asset}</td>
+                          <td className="px-6 py-4 text-slate-600">{log.inspector}</td>
+                          <td className="px-6 py-4">
+                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${
+                              log.result === 'Đạt' 
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                                : 'bg-red-50 text-red-700 border-red-200'
+                            }`}>
+                              {log.result === 'Đạt' ? <CheckCircle2 className="w-3 h-3 mr-1" /> : <AlertTriangle className="w-3 h-3 mr-1" />}
+                              {log.result}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <button className="text-blue-600 hover:text-blue-800 font-medium text-xs bg-blue-50 px-3 py-1.5 rounded-lg transition-colors">Chi tiết</button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                
+                {historyLogs.length === 0 && (
+                  <div className="text-center py-10 text-slate-500">
+                    Chưa có dữ liệu kiểm tra nào.
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* CÁC MÀN HÌNH KHÁC (Giữ chỗ) */}
-          {activeMenu !== 'dashboard' && activeMenu !== 'assets' && activeMenu !== 'inspection' && (
+          {activeMenu === 'export' && (
             <div className="h-full flex flex-col items-center justify-center text-slate-400 animate-in fade-in duration-300">
-              <Settings className="w-16 h-16 mb-4 opacity-20" />
-              <h2 className="text-xl font-medium text-slate-600">Trang đang được phát triển</h2>
-              <p className="mt-2 text-sm">Bạn đang xem tab: <span className="font-semibold text-blue-600">{activeMenu}</span></p>
+              <FileBox className="w-16 h-16 mb-4 opacity-20" />
+              <h2 className="text-xl font-medium text-slate-600">Trang Xuất Sổ lưu trữ (Đang phát triển)</h2>
+              <p className="mt-2 text-sm text-center max-w-md">Tại đây sẽ hỗ trợ xuất file CSV/PDF nộp báo cáo cho Cục Hàng không.</p>
             </div>
           )}
 
