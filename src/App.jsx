@@ -3,15 +3,16 @@ import {
   LayoutDashboard, Layers, ClipboardCheck, FileBox, Activity, Settings, 
   Bell, Search, AlertTriangle, CheckCircle2, Wrench, Clock, ChevronRight, 
   PlaneTakeoff, Plus, Filter, MoreVertical, MapPin, Calendar, User, Save, XCircle, MinusCircle,
-  Menu, X, Download, FileText, CalendarDays
+  Menu, X, Download, FileText, CalendarDays, ListChecks, ChevronDown
 } from 'lucide-react';
 
 const App = () => {
-  const [activeMenu, setActiveMenu] = useState('inspection'); 
+  // Đặt trang mặc định hiển thị là trang Bảng tổng hợp mới để bạn dễ test
+  const [activeMenu, setActiveMenu] = useState('perform_inspection'); 
   const [searchQuery, setSearchQuery] = useState('');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); 
   
-  // State cho Nhập liệu hư hỏng
+  // State cho Nhập liệu hư hỏng (Cá nhân lẻ tẻ)
   const [selectedAssetId, setSelectedAssetId] = useState('');
   const [inspectionData, setInspectionData] = useState({});
 
@@ -19,7 +20,7 @@ const App = () => {
   const [exportType, setExportType] = useState('day');
   const [exportDate, setExportDate] = useState(new Date().toISOString().split('T')[0]);
 
-  // ---------------- MOCK DATA LỊCH SỬ (Dựa theo database_khubay.csv) ----------------
+  // ---------------- MOCK DATA ----------------
   const [historyLogs, setHistoryLogs] = useState([
     { id: 'CCT-20260314-001', date: '14/03/2026', time: '08:30', inspector: 'Nguyễn Văn A', asset: 'Đường cất hạ cánh 01', result: 'Đạt' },
     { id: 'CCT-20260314-002', date: '14/03/2026', time: '08:35', inspector: 'Nguyễn Văn A', asset: 'Đường lăn E', result: 'Không đạt' },
@@ -42,6 +43,79 @@ const App = () => {
 
   const activeAssetForInspection = masterAssets.find(a => a.id === selectedAssetId);
 
+  const handleMenuClick = (menu) => {
+    setActiveMenu(menu);
+    setIsMobileMenuOpen(false);
+  };
+
+  // ---------------- LÔGIC TRANG THỰC HIỆN KIỂM TRA (BẢNG TỔNG HỢP) ----------------
+  // State lưu trữ dữ liệu toàn bộ bảng, mặc định tick ĐẠT ('pass') cho tất cả
+  const [bulkData, setBulkData] = useState(() => {
+    const init = {};
+    masterAssets.forEach(a => {
+      init[a.id] = {};
+      a.criteria.forEach((c, idx) => {
+        init[a.id][idx] = { status: 'pass', note: '', maintenance: '' };
+      });
+    });
+    return init;
+  });
+
+  // State đóng/mở từng tài sản (Mặc định mở cái đầu tiên cho đẹp)
+  const [expandedAssets, setExpandedAssets] = useState({ 'CHC-01': true }); 
+
+  const toggleAssetExpand = (assetId) => {
+    setExpandedAssets(prev => ({ ...prev, [assetId]: !prev[assetId] }));
+  };
+
+  const handleBulkCheck = (assetId, critIndex, status) => {
+    setBulkData(prev => ({
+      ...prev,
+      [assetId]: {
+        ...prev[assetId],
+        [critIndex]: { ...prev[assetId][critIndex], status }
+      }
+    }));
+  };
+
+  const handleBulkChange = (assetId, critIndex, field, value) => {
+    setBulkData(prev => ({
+      ...prev,
+      [assetId]: {
+        ...prev[assetId],
+        [critIndex]: { ...prev[assetId][critIndex], [field]: value }
+      }
+    }));
+  };
+
+  const handleSaveBulkInspection = () => {
+    let failCount = 0;
+    Object.keys(bulkData).forEach(assetId => {
+       Object.values(bulkData[assetId]).forEach(crit => {
+         if (crit.status === 'fail') failCount++;
+       });
+    });
+
+    const overallResult = failCount > 0 ? 'Không đạt' : 'Đạt';
+    const today = new Date();
+    const dateStr = today.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const timeStr = today.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+    const newId = `CCT-${today.getFullYear()}${(today.getMonth()+1).toString().padStart(2,'0')}${today.getDate().toString().padStart(2,'0')}-${Math.floor(100 + Math.random() * 900)}`;
+
+    const newLog = {
+      id: newId,
+      date: dateStr,
+      time: timeStr,
+      inspector: 'Nguyễn Văn A',
+      asset: 'Đa tài sản (Tuần tra tổng hợp)',
+      result: overallResult
+    };
+
+    setHistoryLogs([newLog, ...historyLogs]);
+    handleMenuClick('history');
+  };
+
+  // ---------------- LÔGIC TRANG NHẬP LIỆU LẺ ----------------
   const handleCheck = (criteriaIndex, status) => {
     setInspectionData(prev => ({ ...prev, [criteriaIndex]: { ...prev[criteriaIndex], status } }));
   };
@@ -50,24 +124,14 @@ const App = () => {
     setInspectionData(prev => ({ ...prev, [criteriaIndex]: { ...prev[criteriaIndex], note } }));
   };
 
-  const handleMenuClick = (menu) => {
-    setActiveMenu(menu);
-    setIsMobileMenuOpen(false);
-  };
-
-  // Hàm xử lý khi bấm LƯU KẾT QUẢ
   const handleSaveInspection = () => {
-    // 1. Kiểm tra xem có mục nào Không đạt không
     const isFailed = Object.values(inspectionData).some(item => item.status === 'fail');
     const overallResult = isFailed ? 'Không đạt' : 'Đạt';
-
-    // 2. Tạo mã phiếu mới tự động (ví dụ: CCT-YYYYMMDD-RND)
     const today = new Date();
     const dateStr = today.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
     const timeStr = today.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
     const newId = `CCT-${today.getFullYear()}${(today.getMonth()+1).toString().padStart(2,'0')}${today.getDate().toString().padStart(2,'0')}-${Math.floor(100 + Math.random() * 900)}`;
 
-    // 3. Thêm vào đầu danh sách lịch sử
     const newLog = {
       id: newId,
       date: dateStr,
@@ -78,8 +142,6 @@ const App = () => {
     };
 
     setHistoryLogs([newLog, ...historyLogs]);
-
-    // 4. Reset form và chuyển hướng
     setInspectionData({});
     setSelectedAssetId('');
     handleMenuClick('history');
@@ -117,6 +179,7 @@ const App = () => {
           <nav className="space-y-1 px-3">
             <MenuButton icon={<LayoutDashboard size={20}/>} label="Trang tổng quan" active={activeMenu === 'dashboard'} onClick={() => handleMenuClick('dashboard')} />
             <MenuButton icon={<Layers size={20}/>} label="Danh mục Tài sản" active={activeMenu === 'assets'} onClick={() => handleMenuClick('assets')} />
+            <MenuButton icon={<ListChecks size={20}/>} label="Thực hiện Kiểm tra" active={activeMenu === 'perform_inspection'} onClick={() => handleMenuClick('perform_inspection')} />
             <MenuButton icon={<ClipboardCheck size={20}/>} label="Nhập liệu hư hỏng" active={activeMenu === 'inspection'} onClick={() => handleMenuClick('inspection')} />
             <MenuButton icon={<Activity size={20}/>} label="Lịch sử hư hỏng" active={activeMenu === 'history'} onClick={() => handleMenuClick('history')} />
             <MenuButton icon={<FileBox size={20}/>} label="Sổ tay Tài sản" active={activeMenu === 'export'} onClick={() => handleMenuClick('export')} />
@@ -159,7 +222,7 @@ const App = () => {
         {/* CONTENT AREA */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-8 bg-slate-50">
           
-          {/* MÀN HÌNH DASHBOARD */}
+          {/* 1. MÀN HÌNH DASHBOARD */}
           {activeMenu === 'dashboard' && (
             <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500 pb-10">
                <div className="flex justify-between items-end">
@@ -176,7 +239,7 @@ const App = () => {
             </div>
           )}
 
-          {/* MÀN HÌNH DANH MỤC TÀI SẢN */}
+          {/* 2. MÀN HÌNH DANH MỤC TÀI SẢN */}
           {activeMenu === 'assets' && (
              <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in duration-500 pb-10">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -215,18 +278,152 @@ const App = () => {
             </div>
           )}
 
-          {/* MÀN HÌNH NHẬP LIỆU HƯ HỎNG */}
+          {/* 3. MÀN HÌNH THỰC HIỆN KIỂM TRA (BẢNG TỔNG HỢP - NEW) */}
+          {activeMenu === 'perform_inspection' && (
+            <div className="max-w-[1400px] mx-auto space-y-6 animate-in fade-in duration-500 pb-20">
+              
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                  <h2 className="text-2xl font-bold text-slate-800 flex items-center">
+                    <ListChecks className="mr-2 text-blue-600" /> Thực hiện Kiểm tra tổng hợp
+                  </h2>
+                  <p className="text-slate-500 mt-1 text-sm">Điểm danh trạng thái hàng loạt. Mặc định "Đạt" cho toàn bộ tiêu chí.</p>
+                </div>
+                <button 
+                  onClick={handleSaveBulkInspection}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg text-sm font-bold shadow-sm shadow-blue-200 transition-colors flex items-center whitespace-nowrap"
+                >
+                  <Save className="w-4 h-4 mr-2" />
+                  Lưu & Chốt ca trực
+                </button>
+              </div>
+
+              <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse min-w-[1000px]">
+                    <thead>
+                      <tr className="bg-slate-100 text-slate-700 text-sm border-y border-slate-200">
+                        <th rowSpan={2} className="px-4 py-4 font-bold w-[25%] border-r border-slate-200">Nội dung kiểm tra</th>
+                        <th colSpan={3} className="px-4 py-2 font-bold text-center border-b border-slate-200">Kết quả kiểm tra</th>
+                        <th rowSpan={2} className="px-4 py-4 font-bold w-[25%] border-l border-slate-200">Mô tả chi tiết các điểm, dấu hiệu bất thường</th>
+                        <th rowSpan={2} className="px-4 py-4 font-bold w-[25%] border-l border-slate-200">Hoàn thành việc bảo trì và khắc phục...</th>
+                      </tr>
+                      <tr className="bg-slate-50 text-slate-600 text-xs text-center border-b border-slate-200">
+                        <th className="px-2 py-2 font-semibold w-[8%] border-r border-slate-200">Đạt</th>
+                        <th className="px-2 py-2 font-semibold w-[8%] border-r border-slate-200">Không đạt</th>
+                        <th className="px-2 py-2 font-semibold w-[8%]">Không áp dụng</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-sm">
+                      {masterAssets.map(asset => (
+                        <React.Fragment key={asset.id}>
+                          {/* Row Tài sản (Click để mở rộng) */}
+                          <tr 
+                            className="bg-slate-50 hover:bg-slate-100 cursor-pointer transition-colors"
+                            onClick={() => toggleAssetExpand(asset.id)}
+                          >
+                            <td colSpan={6} className="px-4 py-3 font-bold text-slate-800">
+                              <div className="flex items-center">
+                                {expandedAssets[asset.id] ? <ChevronDown className="w-5 h-5 mr-2 text-blue-600"/> : <ChevronRight className="w-5 h-5 mr-2 text-slate-400"/>}
+                                [{asset.id}] - {asset.name}
+                                <span className="ml-3 text-[11px] font-medium bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full">
+                                  {asset.criteria.length} tiêu chí
+                                </span>
+                              </div>
+                            </td>
+                          </tr>
+
+                          {/* Render danh sách tiêu chí nếu mở rộng */}
+                          {expandedAssets[asset.id] && asset.criteria.map((crit, idx) => {
+                            const data = bulkData[asset.id]?.[idx] || { status: 'pass', note: '', maintenance: '' };
+                            
+                            // Component Nút Check hình tròn
+                            const renderRadio = (type) => {
+                              const isChecked = data.status === type;
+                              const activeColors = {
+                                pass: 'bg-emerald-500 border-emerald-500',
+                                fail: 'bg-red-500 border-red-500',
+                                na: 'bg-slate-400 border-slate-400'
+                              };
+                              return (
+                                <div 
+                                  className="flex justify-center items-center w-full h-full p-2 cursor-pointer group"
+                                  onClick={() => handleBulkCheck(asset.id, idx, type)}
+                                >
+                                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${isChecked ? activeColors[type] : 'border-slate-300 group-hover:border-slate-400 bg-white'}`}>
+                                    {isChecked && <div className="w-2.5 h-2.5 rounded-full bg-white shadow-sm" />}
+                                  </div>
+                                </div>
+                              );
+                            };
+
+                            return (
+                              <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                                <td className="px-4 py-4 pl-12 text-slate-700 font-medium border-r border-slate-100">{idx + 1}. {crit}</td>
+                                
+                                <td className="p-0 align-middle hover:bg-emerald-50/30 transition-colors border-r border-slate-100">
+                                  {renderRadio('pass')}
+                                </td>
+                                <td className="p-0 align-middle hover:bg-red-50/30 transition-colors border-r border-slate-100">
+                                  {renderRadio('fail')}
+                                </td>
+                                <td className="p-0 align-middle hover:bg-slate-100/50 transition-colors">
+                                  {renderRadio('na')}
+                                </td>
+
+                                {/* Ô Nhập Note (Chỉ hiện khi Không Đạt) */}
+                                <td className="px-3 py-3 align-top border-l border-slate-100 bg-slate-50/30">
+                                  {data.status === 'fail' && (
+                                    <div className="animate-in fade-in zoom-in-95 duration-200">
+                                      <textarea 
+                                        className="w-full text-sm p-2.5 border border-red-200 rounded-lg bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all placeholder:text-red-300 resize-none" 
+                                        rows="2" 
+                                        placeholder="Nhập mô tả chi tiết..."
+                                        value={data.note}
+                                        onChange={(e) => handleBulkChange(asset.id, idx, 'note', e.target.value)}
+                                      />
+                                    </div>
+                                  )}
+                                </td>
+
+                                {/* Ô Nhập Maintenance (Chỉ hiện khi Không Đạt) */}
+                                <td className="px-3 py-3 align-top border-l border-slate-100 bg-slate-50/30">
+                                  {data.status === 'fail' && (
+                                    <div className="animate-in fade-in zoom-in-95 duration-200">
+                                      <textarea 
+                                        className="w-full text-sm p-2.5 border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-slate-400 resize-none" 
+                                        rows="2" 
+                                        placeholder="Ghi chú xử lý bảo trì (nếu có)..."
+                                        value={data.maintenance}
+                                        onChange={(e) => handleBulkChange(asset.id, idx, 'maintenance', e.target.value)}
+                                      />
+                                    </div>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </React.Fragment>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 4. MÀN HÌNH NHẬP LIỆU HƯ HỎNG LẺ */}
           {activeMenu === 'inspection' && (
             <div className="max-w-3xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
               <div className="text-center mb-8">
                 <h2 className="text-2xl font-bold text-slate-800 flex items-center justify-center">
                   <ClipboardCheck className="mr-2 text-blue-600" /> Nhập liệu hư hỏng
                 </h2>
-                <p className="text-slate-500 mt-2 text-sm">Ghi nhận tình trạng kỹ thuật hiện trường ngay trên thiết bị di động.</p>
+                <p className="text-slate-500 mt-2 text-sm">Ghi nhận tình trạng kỹ thuật lẻ tại hiện trường.</p>
               </div>
 
               <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 sm:p-6">
-                <label className="block text-sm font-semibold text-slate-700 mb-2">1. Chọn Tài sản cần kiểm tra</label>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">1. Chọn Tài sản</label>
                 <select 
                   className="w-full bg-slate-50 border border-slate-300 text-slate-800 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-3 shadow-sm"
                   value={selectedAssetId}
@@ -313,7 +510,6 @@ const App = () => {
                       <Save className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />
                       Lưu kết quả & Ký nhận
                     </button>
-                    <p className="text-center text-xs text-slate-400 mt-3">Dữ liệu sẽ được mã hóa và đồng bộ lên máy chủ an toàn.</p>
                   </div>
                 </div>
               ) : (
@@ -325,7 +521,7 @@ const App = () => {
             </div>
           )}
 
-          {/* MÀN HÌNH LỊCH SỬ HƯ HỎNG */}
+          {/* 5. MÀN HÌNH LỊCH SỬ HƯ HỎNG */}
           {activeMenu === 'history' && (
             <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in duration-500 pb-10">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -343,7 +539,6 @@ const App = () => {
                 </div>
               </div>
 
-              {/* Bảng dữ liệu Lịch sử */}
               <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse min-w-[800px]">
@@ -392,7 +587,7 @@ const App = () => {
             </div>
           )}
 
-          {/* MÀN HÌNH SỔ TAY TÀI SẢN (XUẤT BÁO CÁO) */}
+          {/* 6. MÀN HÌNH SỔ TAY TÀI SẢN (XUẤT BÁO CÁO) */}
           {activeMenu === 'export' && (
             <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in duration-500 pb-10">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -408,7 +603,6 @@ const App = () => {
                 </button>
               </div>
 
-              {/* Bộ lọc Xuất */}
               <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
                 <div className="flex flex-col sm:flex-row gap-6 mb-6">
                   <div className="flex-1">
@@ -440,7 +634,6 @@ const App = () => {
                   </div>
                 </div>
 
-                {/* Thông báo quy tắc "Auto Đạt" */}
                 <div className="bg-blue-50 text-blue-800 p-4 rounded-lg border border-blue-100 flex items-start text-sm">
                   <div className="mt-0.5 mr-3"><FileText className="w-5 h-5 text-blue-600 shrink-0"/></div>
                   <div>
@@ -450,7 +643,6 @@ const App = () => {
                 </div>
               </div>
 
-              {/* Bảng xem trước dữ liệu xuất */}
               <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
                   <h3 className="font-semibold text-slate-800 text-sm">Bản xem trước dữ liệu xuất (Preview)</h3>
@@ -466,7 +658,6 @@ const App = () => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 text-sm">
-                      {/* Giả lập dữ liệu preview: Có 1 cái lỗi, còn lại Đạt */}
                       <tr className="hover:bg-slate-50">
                         <td className="px-6 py-4 font-medium text-slate-800">Đường cất hạ cánh 01</td>
                         <td className="px-6 py-4 text-slate-500">Khu vực Bắc</td>
@@ -489,7 +680,6 @@ const App = () => {
                   </table>
                 </div>
               </div>
-
             </div>
           )}
 
