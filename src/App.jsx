@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Layers, ClipboardCheck, FileBox, Activity, Settings, 
   Bell, Search, AlertTriangle, CheckCircle2, Wrench, Clock, ChevronRight, 
   PlaneTakeoff, Plus, Filter, MoreVertical, MapPin, Calendar, User, Save, XCircle, MinusCircle,
-  Menu, X
+  Menu, X, Download, FileText, CalendarDays
 } from 'lucide-react';
 
 const App = () => {
@@ -11,9 +11,13 @@ const App = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); 
   
-  // State cho Sổ tay kiểm tra
+  // State cho Nhập liệu hư hỏng
   const [selectedAssetId, setSelectedAssetId] = useState('');
   const [inspectionData, setInspectionData] = useState({});
+
+  // State cho Sổ tay Tài sản (Xuất báo cáo)
+  const [exportType, setExportType] = useState('day');
+  const [exportDate, setExportDate] = useState(new Date().toISOString().split('T')[0]);
 
   // ---------------- MOCK DATA LỊCH SỬ (Dựa theo database_khubay.csv) ----------------
   const [historyLogs, setHistoryLogs] = useState([
@@ -22,7 +26,7 @@ const App = () => {
     { id: 'CCT-20260314-003', date: '14/03/2026', time: '09:15', inspector: 'Trần Văn B', asset: 'Sân đỗ tàu bay số 1', result: 'Đạt' }
   ]);
 
-  const stats = { totalAssets: 45, inspectedToday: historyLogs.length, failed: historyLogs.filter(l => l.result === 'Không đạt').length, maintenance: 2 };
+  const stats = { totalAssets: 45, failed: historyLogs.filter(l => l.result === 'Không đạt').length, maintenance: 2 };
 
   const masterAssets = [
     { id: 'CHC-01', name: 'Đường cất hạ cánh 01', type: 'Đường băng', location: 'Khu vực Bắc', status: 'Đang khai thác', color: 'emerald', image: 'https://images.unsplash.com/photo-1556388158-158ea5ccacbd?auto=format&fit=crop&q=80&w=400&h=250', criteria: ['Tình trạng rạn nứt mặt đường', 'Tình trạng sơn kẻ tín hiệu', 'Tình trạng vệt cao su'] },
@@ -113,9 +117,9 @@ const App = () => {
           <nav className="space-y-1 px-3">
             <MenuButton icon={<LayoutDashboard size={20}/>} label="Trang tổng quan" active={activeMenu === 'dashboard'} onClick={() => handleMenuClick('dashboard')} />
             <MenuButton icon={<Layers size={20}/>} label="Danh mục Tài sản" active={activeMenu === 'assets'} onClick={() => handleMenuClick('assets')} />
-            <MenuButton icon={<ClipboardCheck size={20}/>} label="Sổ tay Kiểm tra" active={activeMenu === 'inspection'} onClick={() => handleMenuClick('inspection')} />
-            <MenuButton icon={<Activity size={20}/>} label="Hồ sơ Bệnh án" active={activeMenu === 'history'} onClick={() => handleMenuClick('history')} />
-            <MenuButton icon={<FileBox size={20}/>} label="Xuất Sổ lưu trữ" active={activeMenu === 'export'} onClick={() => handleMenuClick('export')} />
+            <MenuButton icon={<ClipboardCheck size={20}/>} label="Nhập liệu hư hỏng" active={activeMenu === 'inspection'} onClick={() => handleMenuClick('inspection')} />
+            <MenuButton icon={<Activity size={20}/>} label="Lịch sử hư hỏng" active={activeMenu === 'history'} onClick={() => handleMenuClick('history')} />
+            <MenuButton icon={<FileBox size={20}/>} label="Sổ tay Tài sản" active={activeMenu === 'export'} onClick={() => handleMenuClick('export')} />
           </nav>
         </div>
       </aside>
@@ -161,12 +165,11 @@ const App = () => {
                <div className="flex justify-between items-end">
                 <div>
                   <h2 className="text-2xl font-bold text-slate-800">Tổng quan Khu bay</h2>
-                  <p className="text-slate-500 mt-1 text-sm sm:text-base">Giám sát trạng thái kỹ thuật và tiến độ kiểm tra trong ngày.</p>
+                  <p className="text-slate-500 mt-1 text-sm sm:text-base">Giám sát trạng thái kỹ thuật và các vấn đề hư hỏng.</p>
                 </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <StatCard title="Tổng số Tài sản" value={stats.totalAssets} icon={<Layers className="w-6 h-6 text-blue-600" />} trend="+2 tài sản mới" color="blue" />
-                <StatCard title="Đã kiểm tra" value={`${stats.inspectedToday}/${stats.totalAssets}`} icon={<ClipboardCheck className="w-6 h-6 text-emerald-600" />} trend="Đạt 26% tiến độ" color="emerald" />
                 <StatCard title="Điểm Không Đạt" value={stats.failed} icon={<AlertTriangle className="w-6 h-6 text-red-600" />} trend="Cần xử lý ngay" color="red" alert={stats.failed > 0} />
                 <StatCard title="Đang Bảo trì" value={stats.maintenance} icon={<Wrench className="w-6 h-6 text-amber-600" />} trend="Hệ thống đèn, Sân đỗ" color="amber" />
               </div>
@@ -212,12 +215,12 @@ const App = () => {
             </div>
           )}
 
-          {/* MÀN HÌNH SỔ TAY KIỂM TRA */}
+          {/* MÀN HÌNH NHẬP LIỆU HƯ HỎNG */}
           {activeMenu === 'inspection' && (
             <div className="max-w-3xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
               <div className="text-center mb-8">
                 <h2 className="text-2xl font-bold text-slate-800 flex items-center justify-center">
-                  <ClipboardCheck className="mr-2 text-blue-600" /> Nhập Sổ tay Kiểm tra
+                  <ClipboardCheck className="mr-2 text-blue-600" /> Nhập liệu hư hỏng
                 </h2>
                 <p className="text-slate-500 mt-2 text-sm">Ghi nhận tình trạng kỹ thuật hiện trường ngay trên thiết bị di động.</p>
               </div>
@@ -322,13 +325,13 @@ const App = () => {
             </div>
           )}
 
-          {/* MÀN HÌNH HỒ SƠ BỆNH ÁN (NHẬT KÝ KIỂM TRA) */}
+          {/* MÀN HÌNH LỊCH SỬ HƯ HỎNG */}
           {activeMenu === 'history' && (
             <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in duration-500 pb-10">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
                   <h2 className="text-2xl font-bold text-slate-800 flex items-center">
-                    <Activity className="mr-2 text-blue-600" /> Hồ sơ Bệnh án & Lịch sử
+                    <Activity className="mr-2 text-blue-600" /> Lịch sử hư hỏng
                   </h2>
                   <p className="text-slate-500 mt-1 text-sm">Tra cứu nhật ký tuần tra và trạng thái khắc phục bảo trì.</p>
                 </div>
@@ -389,12 +392,104 @@ const App = () => {
             </div>
           )}
 
-          {/* CÁC MÀN HÌNH KHÁC (Giữ chỗ) */}
+          {/* MÀN HÌNH SỔ TAY TÀI SẢN (XUẤT BÁO CÁO) */}
           {activeMenu === 'export' && (
-            <div className="h-full flex flex-col items-center justify-center text-slate-400 animate-in fade-in duration-300">
-              <FileBox className="w-16 h-16 mb-4 opacity-20" />
-              <h2 className="text-xl font-medium text-slate-600">Trang Xuất Sổ lưu trữ (Đang phát triển)</h2>
-              <p className="mt-2 text-sm text-center max-w-md">Tại đây sẽ hỗ trợ xuất file CSV/PDF nộp báo cáo cho Cục Hàng không.</p>
+            <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in duration-500 pb-10">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                  <h2 className="text-2xl font-bold text-slate-800 flex items-center">
+                    <FileBox className="mr-2 text-blue-600" /> Sổ tay Tài sản
+                  </h2>
+                  <p className="text-slate-500 mt-1 text-sm">Truy xuất và tổng hợp báo cáo tình trạng khu bay.</p>
+                </div>
+                <button className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-lg text-sm font-medium shadow-sm shadow-emerald-200 transition-colors flex items-center">
+                  <Download className="w-4 h-4 mr-2" />
+                  Xuất File Excel
+                </button>
+              </div>
+
+              {/* Bộ lọc Xuất */}
+              <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                <div className="flex flex-col sm:flex-row gap-6 mb-6">
+                  <div className="flex-1">
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">Loại thời gian xuất</label>
+                    <select 
+                      className="w-full bg-slate-50 border border-slate-300 text-slate-800 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5"
+                      value={exportType}
+                      onChange={(e) => setExportType(e.target.value)}
+                    >
+                      <option value="day">Xuất theo Ngày</option>
+                      <option value="month">Xuất theo Tháng</option>
+                    </select>
+                  </div>
+                  <div className="flex-1">
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                      {exportType === 'day' ? 'Chọn Ngày' : 'Chọn Tháng'}
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                        <CalendarDays className="w-4 h-4 text-slate-400" />
+                      </div>
+                      <input 
+                        type={exportType === 'day' ? 'date' : 'month'}
+                        value={exportDate}
+                        onChange={(e) => setExportDate(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-300 text-slate-800 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 pl-10"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Thông báo quy tắc "Auto Đạt" */}
+                <div className="bg-blue-50 text-blue-800 p-4 rounded-lg border border-blue-100 flex items-start text-sm">
+                  <div className="mt-0.5 mr-3"><FileText className="w-5 h-5 text-blue-600 shrink-0"/></div>
+                  <div>
+                    <p className="font-semibold mb-1">Cơ chế tổng hợp tự động</p>
+                    <p className="leading-relaxed">Hệ thống sẽ dựa vào dữ liệu <strong>"Lịch sử hư hỏng"</strong> để lên báo cáo. Đối với các tài sản hoặc tiêu chí <strong>không có ghi nhận hư hỏng</strong> trong khoảng thời gian được chọn, hệ thống sẽ tự động mặc định trạng thái là <span className="text-emerald-600 font-bold bg-emerald-100 px-1.5 py-0.5 rounded">ĐẠT</span>.</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bảng xem trước dữ liệu xuất */}
+              <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                  <h3 className="font-semibold text-slate-800 text-sm">Bản xem trước dữ liệu xuất (Preview)</h3>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse min-w-[800px]">
+                    <thead>
+                      <tr className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider border-b border-slate-200">
+                        <th className="px-6 py-3 font-semibold">Tài sản</th>
+                        <th className="px-6 py-3 font-semibold">Khu vực</th>
+                        <th className="px-6 py-3 font-semibold text-center">Tình trạng tổng quan</th>
+                        <th className="px-6 py-3 font-semibold">Ghi chú hư hỏng (nếu có)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-sm">
+                      {/* Giả lập dữ liệu preview: Có 1 cái lỗi, còn lại Đạt */}
+                      <tr className="hover:bg-slate-50">
+                        <td className="px-6 py-4 font-medium text-slate-800">Đường cất hạ cánh 01</td>
+                        <td className="px-6 py-4 text-slate-500">Khu vực Bắc</td>
+                        <td className="px-6 py-4 text-center"><span className="text-emerald-600 font-medium">Đạt</span></td>
+                        <td className="px-6 py-4 text-slate-400 italic">Hệ thống tự động ghi nhận Đạt</td>
+                      </tr>
+                      <tr className="hover:bg-slate-50 bg-red-50/20">
+                        <td className="px-6 py-4 font-medium text-slate-800">Đường lăn E</td>
+                        <td className="px-6 py-4 text-slate-500">Khu vực Nam</td>
+                        <td className="px-6 py-4 text-center"><span className="text-red-600 font-medium">Không đạt</span></td>
+                        <td className="px-6 py-4 text-slate-700">Mờ vạch sơn tim đường đoạn giữa</td>
+                      </tr>
+                      <tr className="hover:bg-slate-50">
+                        <td className="px-6 py-4 font-medium text-slate-800">Sân đỗ tàu bay số 1</td>
+                        <td className="px-6 py-4 text-slate-500">Khu vực Nhà ga</td>
+                        <td className="px-6 py-4 text-center"><span className="text-emerald-600 font-medium">Đạt</span></td>
+                        <td className="px-6 py-4 text-slate-400 italic">Hệ thống tự động ghi nhận Đạt</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
             </div>
           )}
 
